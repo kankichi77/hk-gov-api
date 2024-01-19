@@ -67,13 +67,7 @@ def main():
             skipped += 1
             # print(f"Timestamp {ts} exists, skipping.")
             continue
-        if counter > MAX_ITER:
-            break
-        else:
-            time.sleep(1)
         # print(f"Retrieving data for {datetime.datetime.strptime(ts, '%Y%m%d-%H%M')}.")
-        sys.stdout.write(f".")
-        sys.stdout.flush()
         url = "https://api.data.gov.hk/v1/historical-archive/get-file?url=https%3A%2F%2Fwww.fehd.gov.hk%2Fenglish%2Flicensing%2Flicense%2Ftext%2FLP_Restaurants_EN.XML&time="
         url += ts
         output = getApiOutput(url)
@@ -81,6 +75,14 @@ def main():
         count["Timestamp"] = ts
         countList.append(count)
         counter += 1
+        if counter >= MAX_ITER:
+            break
+        else:
+            time.sleep(1)
+        sys.stdout.write(f".")
+        if counter % 10 == 0:
+            sys.stdout.write("\n")
+        sys.stdout.flush()
     print(f"\nRetrieved {counter} record(s) from API.")
     print("")
 
