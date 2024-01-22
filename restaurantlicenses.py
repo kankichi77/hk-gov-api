@@ -74,13 +74,13 @@ def writeToCSV(countList):
     print(f"Wrote {len(countList)} row(s) to CSV file.")
 
 def getRestaurantLicensesData(timestamps, countList, counter):
-    print(f"Getting Restaurant License API data ...")
     local_counter = 0
     for ts in timestamps:
         if timestampExists(ts, countList):
             continue
         url = "https://api.data.gov.hk/v1/historical-archive/get-file?url=https%3A%2F%2Fwww.fehd.gov.hk%2Fenglish%2Flicensing%2Flicense%2Ftext%2FLP_Restaurants_EN.XML&time="
         url += ts
+        print(f"Getting Restaurant License API data ...")
         output = getApiOutput(url)
         count = parseXMLfromAPI(output)
         count["Timestamp"] = ts
@@ -99,15 +99,20 @@ def getRestaurantLicensesData(timestamps, countList, counter):
         sys.stdout.flush()
     print(f"\nRetrieved {local_counter} record(s) from API.")
     print("")
-    return counter
+    return local_counter
 
 def main():
     timestamps = getTimestamps()
     countList = readFromCSV()
     counter = 0
-    while counter < MAX_ITER:
-        counter = getRestaurantLicensesData(timestamps, countList, counter)
+    while counter <= MAX_ITER:
+        new_recs= getRestaurantLicensesData(timestamps, countList, counter)
+        if new_recs == 0:
+            break
+        else:
+            counter += new_recs
         writeToCSV(countList)
+        # counter = MAX_ITER + 1
 
 if __name__ == "__main__":
     start_ts = time.time()
