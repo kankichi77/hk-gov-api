@@ -2,7 +2,9 @@ import urllib.request
 import json, csv, datetime, time, sys
 import xml.etree.ElementTree as ET
 
-MAX_ITER = 1
+MAX_ITER = 10
+REC_COUNTER = 0
+REC_PER_ITER = 20
 
 def getApiOutput(url):
     with urllib.request.urlopen(url) as response:
@@ -28,24 +30,22 @@ def timestampExists(ts, countList:list):
             return True
     return False
 
-def main():
-    timestamps = []
-    countList = []
-
+def getTimestamps():
     startDate = datetime.date(2021,1,1)
     endDate = datetime.date.today() - datetime.timedelta(days=1)
     url = "https://api.data.gov.hk/v1/historical-archive/list-file-versions?url=https%3A%2F%2Fwww.fehd.gov.hk%2Fenglish%2Flicensing%2Flicense%2Ftext%2FLP_Restaurants_EN.XML&start="
     url += startDate.strftime('%Y%m%d')
     url += "&end="
     url += endDate.strftime('%Y%m%d')
-
     print(f"Getting file timestamps...")
-    #print(url)
     output = getApiOutput(url)
     timestamps = json.loads(output)["timestamps"]
     print(f"Got {len(timestamps)} record(s).")
     print("")
+    return timestamps
 
+def readFromCSV():
+    countList = []
     print(f"Reading from CSV file ...")
     try:
         with open('restaurantlicenses.csv', newline='') as csvfile:
@@ -58,16 +58,27 @@ def main():
     except:
         print(f"No CSV file.")
     print("")
+    return countList
 
+def writeToCSV(countList):
+    print(f"Writing to CSV File...")
+    if "Timestamp" in countList[0]:
+        countList = sorted(countList, key=lambda x: x['Timestamp'])
+    with open('restaurantlicenses.csv', 'w', newline='') as csvfile:
+        fieldnames = countList[0].keys()
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for count in countList:
+            writer.writerow(count)
+    print(f"Wrote {len(countList)} row(s) to CSV file.")
+
+def getRestaurantLicensesData(timestamps, countList, counter):
     print(f"Getting Restaurant License API data ...")
-    counter = 0
-    skipped = 0
+    local_counter = 0
     for ts in timestamps:
         if timestampExists(ts, countList):
-            skipped += 1
-            # print(f"Timestamp {ts} exists, skipping.")
             continue
-        # print(f"Retrieving data for {datetime.datetime.strptime(ts, '%Y%m%d-%H%M')}.")
         url = "https://api.data.gov.hk/v1/historical-archive/get-file?url=https%3A%2F%2Fwww.fehd.gov.hk%2Fenglish%2Flicensing%2Flicense%2Ftext%2FLP_Restaurants_EN.XML&time="
         url += ts
         output = getApiOutput(url)
@@ -75,28 +86,28 @@ def main():
         count["Timestamp"] = ts
         countList.append(count)
         counter += 1
-        if counter >= MAX_ITER:
+        local_counter += 1
+
+        sys.stdout.write(f".")
+
+        if counter >= MAX_ITER or local_counter >= REC_PER_ITER:
             break
         else:
+            if local_counter % 10 == 0:
+                sys.stdout.write("\n")
             time.sleep(1)
-        sys.stdout.write(f".")
-        if counter % 10 == 0:
-            sys.stdout.write("\n")
         sys.stdout.flush()
-    print(f"\nRetrieved {counter} record(s) from API.")
+    print(f"\nRetrieved {local_counter} record(s) from API.")
     print("")
+    return counter
 
-    print(f"Writing to CSV File...")
-    if "Timestamp" in countList[0]:
-        countList = sorted(countList, key=lambda x: x['Timestamp'])
-    with open('restaurantlicenses.csv', 'w', newline='') as csvfile:
-        fieldnames = count.keys()
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-        writer.writeheader()
-        for count in countList:
-            writer.writerow(count)
-    print(f"Wrote {len(countList)} row(s) to CSV file.")
+def main():
+    timestamps = getTimestamps()
+    countList = readFromCSV()
+    counter = 0
+    while counter < MAX_ITER:
+        counter = getRestaurantLicensesData(timestamps, countList, counter)
+        writeToCSV(countList)
 
 if __name__ == "__main__":
     start_ts = time.time()
