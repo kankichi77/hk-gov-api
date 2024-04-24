@@ -12,3 +12,6 @@ if __name__ == "__main__":
     if user_input:
         busstop = APImanager.getBusStop(user_input)
         print(f"{busstop.stop}: {busstop.name_en}")
+        etalist = APImanager.getETAList(busstop.stop, route.route, "I")
+        for eta in etalist:
+            print(f"{eta['seq']}: {eta['eta']}")

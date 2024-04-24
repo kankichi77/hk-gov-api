@@ -19,6 +19,25 @@ class ETA():
     rmk_sc: str
     data_timestamp: str
 
+    @classmethod
+    def initFromJson(cls, json: json):
+        return cls(
+            co = json["co"],
+            route = json["route"],
+            dir = json["dir"],
+            seq = json["seq"],
+            stop = json["stop"],
+            dest_tc = json["dest_tc"],
+            dest_en = json["dest_en"],
+            eta = json["eta"],
+            rmk_tc = json["rmk_tc"],
+            eta_seq = json["eta_seq"],
+            dest_sc = json["dest_sc"],
+            rmk_en = json["rmk_en"],
+            rmk_sc = json["rmk_sc"],
+            data_timestamp = json["data_timestamp"],
+        )
+
 @dataclass
 class RouteStop():
     co: str
@@ -91,6 +110,7 @@ class Route():
 class HKBUSAPI_Manager():
     RoutesList: list[Route] = None
     RouteStopsList : list[RouteStop] = None
+    ETAList : list[ETA] = None
 
     def initRouteStops(self, routenumber, dir) -> list[RouteStop]:
         if self.RouteStopsList: return self.RouteStopsList
@@ -149,3 +169,27 @@ class HKBUSAPI_Manager():
         with request.urlopen(url) as response:
             api_output = json.loads(response.read().decode('utf8'))
         return BusStop.initFromJson(api_output["data"])
+    
+    def initETAList(self, stopnumber, routenumber) -> list[ETA]:
+        url = "https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/"
+        url += stopnumber + "/" + routenumber
+        with request.urlopen(url) as response:
+            api_output = json.loads(response.read().decode('utf8'))
+        etaList = []
+        for eta in api_output["data"]:
+            etaList.append(ETA.initFromJson(eta))
+        self.ETAList = etaList
+        return etaList
+    
+    # dir is either "I" or "O"
+    def getETAList(self, stopnumber, routenumber, dir) -> list:
+        self.initETAList(stopnumber, routenumber)
+        output = []
+        for eta in self.ETAList:
+            if dir == eta.dir:
+                output.append({
+                    "seq": eta.eta_seq,
+                    "eta": eta.eta,
+                })
+        return output
+
